@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="FinanceApp.IdentityProvider.Api/IdentityProvider.Api.csproj" />
+  <Project Path="FinanceApp.IdentityProvider.Infrastucture/IdentityProvider.Infrastucture.csproj" />
+</Solution>
