@@ -1,0 +1,50 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: identityprovider-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "YourStrong!Passw0rd"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - identityprovider-sqldata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - identityprovider-net
+      
+  api:
+    build:
+      context: .
+      dockerfile: IdentityProvider.API/Dockerfile
+    container_name: identityprovider-api
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT}"
+      ASPNETCORE_HTTP_PORTS: "${ASPNETCORE_HTTP_PORTS}"
+      ConnectionStrings__IdentityDb: "Server=sqlserver,1433;Database=${DB_NAME};User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True"
+      JwtSettings__Key: "${JWT_SECRET}"
+      JwtSettings__Issuer: "${JWT_ISSUER}"
+      JwtSettings__Audience: "${JWT_AUDIENCE}"
+      JwtSettings__AccessTokenMinutes: 15
+      JwtSettings__RefreshTokenDays: 15
+      EnableSwagger: true
+    ports:
+      - "8080:8080"
+    networks:
+      - identityprovider-net
+      
+volumes:
+  identityprovider-sqldata:
+  
+networks:
+  identityprovider-net:
+    driver: bridge

@@ -1,13 +1,13 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
-using IdentityProvider.Api.Auth;
-using IdentityProvider.Api.Data;
 using IdentityProvider.Api.Endpoints;
-using IdentityProvider.Api.Entities;
-using IdentityProvider.Api.Services;
+using IdentityProvider.Domain;
+using IdentityProvider.Domain.Auth;
+using IdentityProvider.Domain.Models;
+using IdentityProvider.Infrastructure;
+using IdentityProvider.Infrastructure.Database;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 
@@ -16,7 +16,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
 
-builder.Services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase("JwtAuthDb"));
+builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddDomain();
 builder.Services
     .AddIdentity<ApplicationUser, IdentityRole>(options => options.User.RequireUniqueEmail = true)
     .AddEntityFrameworkStores<AppDbContext>();
@@ -61,14 +62,14 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddAuthorization();
-builder.Services.AddScoped<ITokenService, TokenService>();
+
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-await DbSeeder.SeedAsync(app.Services);
+var enableSwagger = builder.Configuration.GetValue<bool>("EnableSwagger");
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || enableSwagger)
 {
     app.MapOpenApi();
     app.UseSwagger();

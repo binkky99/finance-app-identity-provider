@@ -1,4 +1,4 @@
-﻿namespace IdentityProvider.Api.Auth;
+﻿namespace IdentityProvider.Domain.Auth;
 
 public static class Roles
 {

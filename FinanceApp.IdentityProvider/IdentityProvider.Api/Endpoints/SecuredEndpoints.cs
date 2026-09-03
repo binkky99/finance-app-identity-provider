@@ -1,5 +1,5 @@
 ﻿using System.Security.Claims;
-using IdentityProvider.Api.Auth;
+using IdentityProvider.Domain.Auth;
 
 namespace IdentityProvider.Api.Endpoints;
 

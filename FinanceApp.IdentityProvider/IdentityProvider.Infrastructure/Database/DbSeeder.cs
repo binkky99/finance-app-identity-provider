@@ -1,8 +1,9 @@
-﻿using IdentityProvider.Api.Auth;
-using IdentityProvider.Api.Entities;
+﻿using IdentityProvider.Domain.Auth;
+using IdentityProvider.Domain.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace IdentityProvider.Api.Data;
+namespace IdentityProvider.Infrastructure.Database;
 
 // Creates the roles and a default admin user when the app starts,
 // so you can log in and test straight away.

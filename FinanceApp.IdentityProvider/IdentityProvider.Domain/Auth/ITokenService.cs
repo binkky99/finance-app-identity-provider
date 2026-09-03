@@ -1,6 +1,6 @@
-﻿using IdentityProvider.Api.Entities;
+﻿using IdentityProvider.Domain.Models;
 
-namespace IdentityProvider.Api.Auth;
+namespace IdentityProvider.Domain.Auth;
 
 public interface ITokenService
 {

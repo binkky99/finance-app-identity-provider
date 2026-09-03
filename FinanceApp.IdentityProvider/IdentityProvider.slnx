@@ -1,4 +1,5 @@
 <Solution>
-  <Project Path="FinanceApp.IdentityProvider.Api/IdentityProvider.Api.csproj" />
-  <Project Path="FinanceApp.IdentityProvider.Infrastucture/IdentityProvider.Infrastucture.csproj" />
+  <Project Path="IdentityProvider.Api/IdentityProvider.Api.csproj" />
+  <Project Path="IdentityProvider.Domain/IdentityProvider.Domain.shproj" Id="fcaa0b0e-7a76-4321-b044-333af85c1445" />
+  <Project Path="IdentityProvider.Infrastructure/IdentityProvider.Infrastructure.csproj" />
 </Solution>

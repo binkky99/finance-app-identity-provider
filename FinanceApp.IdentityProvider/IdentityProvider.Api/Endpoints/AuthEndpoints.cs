@@ -1,10 +1,10 @@
-﻿using IdentityProvider.Api.Auth;
-using IdentityProvider.Api.Data;
-using IdentityProvider.Api.Entities;
-using IdentityProvider.Api.Models;
+﻿using IdentityProvider.Api.Models;
+using IdentityProvider.Domain.Models;
+using IdentityProvider.Domain.Auth;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using IdentityProvider.Infrastructure.Database;
 
 namespace IdentityProvider.Api.Endpoints;
 

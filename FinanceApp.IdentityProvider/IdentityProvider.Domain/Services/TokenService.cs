@@ -1,13 +1,13 @@
 ﻿using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using IdentityProvider.Api.Auth;
-using IdentityProvider.Api.Entities;
+using IdentityProvider.Domain.Auth;
+using IdentityProvider.Domain.Models;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
-namespace IdentityProvider.Api.Services;
+namespace IdentityProvider.Domain.Services;
 
 public class TokenService(IOptions<JwtSettings> jwtSettings) : ITokenService
 {

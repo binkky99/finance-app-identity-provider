@@ -1,4 +1,4 @@
-﻿namespace IdentityProvider.Api.Entities;
+﻿namespace IdentityProvider.Domain.Models;
 
 public class RefreshToken
 {

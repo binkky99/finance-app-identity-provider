@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects Condition="'$(MSBuildVersion)' == '' Or '$(MSBuildVersion)' &lt; '16.0'">$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>fcaa0b0e-7a76-4321-b044-333af85c1445</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>IdentityProvider.Domain</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Auth\ITokenService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Auth\JwtSettings.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Auth\Role.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DependencyInjection.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\ApplicationUser.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\RefreshToken.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Repositories\IRefreshTokenRepository.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Services\TokenService.cs" />
+  </ItemGroup>
+</Project>
