@@ -36,6 +36,7 @@ services:
       JwtSettings__Audience: "${JWT_AUDIENCE}"
       JwtSettings__AccessTokenMinutes: 15
       JwtSettings__RefreshTokenDays: 15
+      Cors__AllowedOrigins__0: "${CORS__ALLOWEDORIGINS__0}"
       EnableSwagger: true
     ports:
       - "8080:8080"

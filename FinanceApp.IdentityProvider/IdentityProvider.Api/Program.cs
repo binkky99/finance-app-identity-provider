@@ -18,9 +18,24 @@ var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSetting
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddDomain();
+
 builder.Services
     .AddIdentity<ApplicationUser, IdentityRole>(options => options.User.RequireUniqueEmail = true)
     .AddEntityFrameworkStores<AppDbContext>();
+
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? [];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Default", policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
 
 builder.Services.AddAuthentication(options =>
 {
@@ -77,7 +92,7 @@ if (app.Environment.IsDevelopment() || enableSwagger)
 }
 
 app.UseHttpsRedirection();
-
+app.UseCors("Default");
 app.UseAuthentication();
 app.UseAuthorization();
 
