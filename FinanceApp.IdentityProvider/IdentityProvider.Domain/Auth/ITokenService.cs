@@ -10,5 +10,5 @@ public interface ITokenService
         IEnumerable<string> roles, 
         IEnumerable<Claim> userClaims
     );
-    string CreateRefreshToken();
+    (string RawToken, string TokenHash) CreateRefreshToken();
 }

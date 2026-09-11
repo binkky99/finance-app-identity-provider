@@ -1,4 +1,6 @@
-﻿using IdentityProvider.Api.Models;
+﻿using System.Security.Cryptography;
+using System.Text;
+using IdentityProvider.Api.Models;
 using IdentityProvider.Domain.Auth;
 using IdentityProvider.Domain.Models;
 using IdentityProvider.Domain.Security;
@@ -132,20 +134,20 @@ public static class AuthEndpoints
 
         var (token, expiresAt) = await tokenService.CreateAccessToken(user, roles, userClaims);
 
-        var refreshToken = tokenService.CreateRefreshToken();
+        var (RawToken, tokenHash) = tokenService.CreateRefreshToken();
         var refreshExpiresAt = DateTime.UtcNow.AddDays(jwtSettings.Value.RefreshTokenDays);
 
         db.RefreshTokens.Add(new RefreshToken
         {
-            Token = refreshToken,
+            HashedToken = tokenHash,
             UserId = user.Id,
             Created = DateTime.UtcNow,
-            Expires = expiresAt
+            Expires = refreshExpiresAt
         });
 
         await db.SaveChangesAsync(cancellationToken);
 
-        AddRefreshTokenToCookie(context, refreshToken);
+        AddRefreshTokenToCookie(context, RawToken);
 
         var csrfTokens = antiforgery.GetAndStoreTokens(context);
         return Results.Ok(new AuthResponse(token, expiresAt, csrfTokens.RequestToken));
@@ -162,14 +164,14 @@ public static class AuthEndpoints
     {
         await antiforgery.ValidateRequestAsync(context);
 
-        string? refreshToken = null;
+        string? hashedRefreshToken = null;
         if (context.Request.Cookies.TryGetValue("refreshToken", out string? cookieValue))
         {
-            refreshToken = cookieValue;
+            hashedRefreshToken = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(cookieValue)));
         }
 
         var existing = await db.RefreshTokens
-            .FirstOrDefaultAsync(t => t.Token == refreshToken, cancellationToken: cancellationToken);
+            .FirstOrDefaultAsync(t => t.HashedToken == hashedRefreshToken, cancellationToken: cancellationToken);
 
         if (existing is null)
         {
@@ -191,21 +193,21 @@ public static class AuthEndpoints
             return Results.Unauthorized();
         }
 
-        var newRefreshToken = tokenService.CreateRefreshToken();
+        var (rawToken, tokenHash) = tokenService.CreateRefreshToken();
         var refreshExpiresAt = DateTime.UtcNow.AddDays(jwtSettings.Value.RefreshTokenDays);
 
         existing.Revoked = DateTime.UtcNow;
-        existing.ReplacedByToken = newRefreshToken;
+        existing.ParentTokenId = existing.Id;
 
         db.RefreshTokens.Add(new RefreshToken
         {
-            Token = newRefreshToken,
+            HashedToken = tokenHash,
             UserId = user.Id,
             Created = DateTime.UtcNow,
             Expires = refreshExpiresAt
         });
         await db.SaveChangesAsync(cancellationToken);
-        AddRefreshTokenToCookie(context, newRefreshToken);
+        AddRefreshTokenToCookie(context, rawToken);
 
         var roles = await userManager.GetRolesAsync(user);
         var userClaims = await userManager.GetClaimsAsync(user);
@@ -213,7 +215,8 @@ public static class AuthEndpoints
 
         var csrfTokens = antiforgery.GetAndStoreTokens(context);
         return Results.Ok(new AuthResponse(
-            accessToken, accessExpiresAt, 
+            accessToken, 
+            accessExpiresAt, 
             CsrfToken: csrfTokens.RequestToken));
     }
 
@@ -232,7 +235,7 @@ public static class AuthEndpoints
     private static async Task<IResult> RevokeAsync(RevokeRequest request, AppDbContext db)
     {
         var token = await db.RefreshTokens
-            .FirstOrDefaultAsync(t => t.Token == request.RefreshToken);
+            .FirstOrDefaultAsync(t => t.HashedToken == request.RefreshToken);
 
         if (token is null || !token.IsActive)
         {

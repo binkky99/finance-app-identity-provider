@@ -106,6 +106,7 @@ app.UseHttpsRedirection();
 app.UseCors("Default");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseAntiforgery();
 
 app.MapAuthEndpoints();
 app.MapSecuredEndpoints();

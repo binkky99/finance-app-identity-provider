@@ -50,9 +50,11 @@ public class TokenService(IOptions<JwtSettings> jwtSettings, ISigningKeyProvider
         return (token, expiresAt);
     }
 
-    public string CreateRefreshToken()
+    public (string RawToken, string TokenHash) CreateRefreshToken()
     {
         var randomBytes = RandomNumberGenerator.GetBytes(64);
-        return Convert.ToBase64String(randomBytes);
+        var rawToken = Base64UrlEncoder.Encode(randomBytes);
+        var tokenHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(rawToken)));
+        return (rawToken, tokenHash);
     }
 }
