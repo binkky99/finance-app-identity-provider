@@ -5,13 +5,46 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using IdentityProvider.Infrastructure.Database;
+using Microsoft.IdentityModel.Tokens;
+using IdentityProvider.Domain.Security;
 
 namespace IdentityProvider.Api.Endpoints;
 
 public static class AuthEndpoints
 {
+    private static readonly string[] ALG_VALUES_SUPPORTED = ["RS256"];
+
     public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
+        app.MapGet("/.well-known/openid-configuration", (IConfiguration config) =>
+        {
+            var issuer = config["JwtSettings:Issuer"];
+            return Results.Json(new
+            {
+                issuer,
+                jwks_uri = $"{issuer}/.well-known/jwks.json",
+                id_token_signing_alg_values_supported = ALG_VALUES_SUPPORTED
+            });
+        });
+
+        app.MapGet("/.well-known/jwks.json", async (ISigningKeyProvider provider) =>
+        {
+            var keys = await provider.GetValidationKeysAsync();
+            var jwks = new
+            {
+                keys = keys.Select(k =>
+                {
+                    var jwk = JsonWebKeyConverter.ConvertFromRSASecurityKey(k.Key);
+                    jwk.Use = "sig";
+                    jwk.Alg = SecurityAlgorithms.RsaSha256;
+                    jwk.Kid = k.Kid;
+                    return jwk;
+                })
+            };
+
+            return Results.Json(jwks);
+        });
+
         var group = app.MapGroup("/api/auth").WithTags("Auth");
 
         group.MapPost("/register", RegisterAsync);
@@ -21,6 +54,7 @@ public static class AuthEndpoints
 
         group.MapPost("/add-role", AddRoleAsync)
             .RequireAuthorization(policy => policy.RequireRole(Roles.Admin));
+
     }
 
     private static async Task<IResult> AddRoleAsync(
@@ -85,7 +119,10 @@ public static class AuthEndpoints
         }
 
         var roles = await userManager.GetRolesAsync(user);
-        var (token, expiresAt) = tokenService.CreateAccessToken(user, roles);
+
+        var userClaims = await userManager.GetClaimsAsync(user);
+
+        var (token, expiresAt) = await tokenService.CreateAccessToken(user, roles, userClaims);
 
         var refreshToken = tokenService.CreateRefreshToken();
         var refreshExpiresAt = DateTime.UtcNow.AddDays(jwtSettings.Value.RefreshTokenDays);
@@ -150,7 +187,8 @@ public static class AuthEndpoints
         await db.SaveChangesAsync(cancellationToken);
 
         var roles = await userManager.GetRolesAsync(user);
-        var (accessToken, accessExpiresAt) = tokenService.CreateAccessToken(user, roles);
+        var userClaims = await userManager.GetClaimsAsync(user);
+        var (accessToken, accessExpiresAt) = await tokenService.CreateAccessToken(user, roles, userClaims);
 
         return Results.Ok(new AuthResponse(
             user.Id, user.Email, roles, 

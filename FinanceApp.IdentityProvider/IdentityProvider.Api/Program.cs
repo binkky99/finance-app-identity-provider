@@ -59,6 +59,7 @@ builder.Services.AddAuthentication(options =>
         RoleClaimType = "role"
     };
 });
+
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("bearer", new OpenApiSecurityScheme

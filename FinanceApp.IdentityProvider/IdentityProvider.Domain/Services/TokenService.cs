@@ -3,22 +3,25 @@ using System.Security.Cryptography;
 using System.Text;
 using IdentityProvider.Domain.Auth;
 using IdentityProvider.Domain.Models;
+using IdentityProvider.Domain.Security;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
 namespace IdentityProvider.Domain.Services;
 
-public class TokenService(IOptions<JwtSettings> jwtSettings) : ITokenService
+public class TokenService(IOptions<JwtSettings> jwtSettings, ISigningKeyProvider signingKeyProvider) : ITokenService
 {
     private readonly JwtSettings _settings = jwtSettings.Value;
 
-    public (string Token, DateTime ExpiresAt) CreateAccessToken(ApplicationUser user, IEnumerable<string> roles)
+    public async Task<(string Token, DateTime ExpiresAt)> CreateAccessToken(
+        ApplicationUser user, 
+        IEnumerable<string> roles, 
+        IEnumerable<Claim> userClaims)
     {
         var expiresAt = DateTime.UtcNow.AddMinutes(_settings.AccessTokenMinutes);
-        
-        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Key));
-        var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
+        var (kid, rsaKey) = await signingKeyProvider.GetActiveSigningKeyAsync();
+        var credentials = new SigningCredentials(rsaKey, SecurityAlgorithms.RsaSha256);
 
         var claims = new List<Claim>
         {
@@ -29,6 +32,8 @@ public class TokenService(IOptions<JwtSettings> jwtSettings) : ITokenService
         };
 
         claims.AddRange(roles.Select(role => new Claim("role", role)));
+
+        claims.AddRange(userClaims);
 
         var descriptor = new SecurityTokenDescriptor
         {

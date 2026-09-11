@@ -15,7 +15,12 @@
     <Compile Include="$(MSBuildThisFileDirectory)DependencyInjection.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\ApplicationUser.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\RefreshToken.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\SigningKey.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Repositories\IRefreshTokenRepository.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Security\ISigningKeyProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Security\SigningKeyStore.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Services\KeyRotationHostedService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Services\SigningKeyProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Services\TokenService.cs" />
   </ItemGroup>
 </Project>
