@@ -31,11 +31,10 @@ services:
       ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT}"
       ASPNETCORE_HTTP_PORTS: "${ASPNETCORE_HTTP_PORTS}"
       ConnectionStrings__IdentityDb: "Server=sqlserver,1433;Database=${DB_NAME};User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True"
-      JwtSettings__Key: "${JWT_SECRET}"
       JwtSettings__Issuer: "${JWT_ISSUER}"
       JwtSettings__Audience: "${JWT_AUDIENCE}"
       JwtSettings__AccessTokenMinutes: 15
-      JwtSettings__RefreshTokenDays: 15
+      JwtSettings__RefreshTokenDays: 6
       Cors__AllowedOrigins__0: "${CORS__ALLOWEDORIGINS__0}"
       EnableSwagger: true
     ports:

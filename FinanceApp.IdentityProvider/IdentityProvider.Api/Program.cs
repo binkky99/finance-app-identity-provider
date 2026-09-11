@@ -1,6 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
-using System.Text;
 using IdentityProvider.Api.Endpoints;
+using IdentityProvider.API.Swagger;
 using IdentityProvider.Domain;
 using IdentityProvider.Domain.Auth;
 using IdentityProvider.Domain.Models;
@@ -14,7 +14,9 @@ using Microsoft.OpenApi;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+builder.Services.Configure<Cors>(builder.Configuration.GetSection("Cors"));
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
+var cors = builder.Configuration.GetSection("Cors").Get<Cors>()!;
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddDomain();
@@ -23,18 +25,25 @@ builder.Services
     .AddIdentity<ApplicationUser, IdentityRole>(options => options.User.RequireUniqueEmail = true)
     .AddEntityFrameworkStores<AppDbContext>();
 
-var allowedOrigins = builder.Configuration
-    .GetSection("Cors:AllowedOrigins")
-    .Get<string[]>() ?? [];
-
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Default", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
+        policy.WithOrigins(cors.AllowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
+});
+
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-CSRF-Token";
+    options.Cookie.Name = "XSRF-TOKEN";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ?
+        CookieSecurePolicy.None :
+        CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
 });
 
 builder.Services.AddAuthentication(options =>
@@ -44,7 +53,8 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.MapInboundClaims = false;
+    options.Authority = jwtSettings.Authority;
+    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
@@ -53,7 +63,6 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = jwtSettings.Issuer,
         ValidAudience = jwtSettings.Audience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
         ClockSkew = TimeSpan.Zero,
         NameClaimType = JwtRegisteredClaimNames.Name,
         RoleClaimType = "role"
@@ -73,6 +82,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         [new OpenApiSecuritySchemeReference("bearer", document)] = []
     });
+    options.OperationFilter<CsrfTokenHeaderOperationFilter>();
 });
 
 builder.Services.AddSwaggerGen();

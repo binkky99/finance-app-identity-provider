@@ -9,6 +9,7 @@
     <Import_RootNamespace>IdentityProvider.Domain</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Auth\Cors.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Auth\ITokenService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Auth\JwtSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Auth\Role.cs" />

@@ -1,12 +1,13 @@
 ﻿using IdentityProvider.Api.Models;
-using IdentityProvider.Domain.Models;
 using IdentityProvider.Domain.Auth;
+using IdentityProvider.Domain.Models;
+using IdentityProvider.Domain.Security;
+using IdentityProvider.Infrastructure.Database;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using IdentityProvider.Infrastructure.Database;
 using Microsoft.IdentityModel.Tokens;
-using IdentityProvider.Domain.Security;
 
 namespace IdentityProvider.Api.Endpoints;
 
@@ -16,34 +17,9 @@ public static class AuthEndpoints
 
     public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/.well-known/openid-configuration", (IConfiguration config) =>
-        {
-            var issuer = config["JwtSettings:Issuer"];
-            return Results.Json(new
-            {
-                issuer,
-                jwks_uri = $"{issuer}/.well-known/jwks.json",
-                id_token_signing_alg_values_supported = ALG_VALUES_SUPPORTED
-            });
-        });
-
-        app.MapGet("/.well-known/jwks.json", async (ISigningKeyProvider provider) =>
-        {
-            var keys = await provider.GetValidationKeysAsync();
-            var jwks = new
-            {
-                keys = keys.Select(k =>
-                {
-                    var jwk = JsonWebKeyConverter.ConvertFromRSASecurityKey(k.Key);
-                    jwk.Use = "sig";
-                    jwk.Alg = SecurityAlgorithms.RsaSha256;
-                    jwk.Kid = k.Kid;
-                    return jwk;
-                })
-            };
-
-            return Results.Json(jwks);
-        });
+        // Host well known endpoints to get public RSA key.
+        app.MapGet("/.well-known/openid-configuration", OpenIdConfiguration);
+        app.MapGet("/.well-known/jwks.json", Jwks);
 
         var group = app.MapGroup("/api/auth").WithTags("Auth");
 
@@ -54,7 +30,6 @@ public static class AuthEndpoints
 
         group.MapPost("/add-role", AddRoleAsync)
             .RequireAuthorization(policy => policy.RequireRole(Roles.Admin));
-
     }
 
     private static async Task<IResult> AddRoleAsync(
@@ -102,7 +77,40 @@ public static class AuthEndpoints
         return Results.Ok($"User '{request.Email}' registered successfully.");
     }
 
+    private static async Task<IResult> OpenIdConfiguration(
+        IConfiguration config, 
+        IOptions<JwtSettings> jwtSettings)
+    {
+        var issuer = jwtSettings.Value.Issuer;
+        return Results.Json(new
+        {
+            issuer,
+            jwks_uri = $"{issuer}/.well-known/jwks.json",
+            id_token_signing_alg_values_supported = ALG_VALUES_SUPPORTED
+        });
+    }
+
+    private static async Task<IResult> Jwks(ISigningKeyProvider provider)
+    {
+        var keys = await provider.GetValidationKeysAsync();
+        var jwks = new
+        {
+            keys = keys.Select(k =>
+            {
+                var jwk = JsonWebKeyConverter.ConvertFromRSASecurityKey(k.Key);
+                jwk.Use = "sig";
+                jwk.Alg = SecurityAlgorithms.RsaSha256;
+                jwk.Kid = k.Kid;
+                return jwk;
+            })
+        };
+
+        return Results.Json(jwks);
+    }
+
     private static async Task<IResult> LoginAsync(
+        HttpContext context,
+        IAntiforgery antiforgery,
         LoginRequest request,
         AppDbContext db,
         UserManager<ApplicationUser> userManager,
@@ -137,19 +145,31 @@ public static class AuthEndpoints
 
         await db.SaveChangesAsync(cancellationToken);
 
-        return Results.Ok(new AuthResponse(user.Id, user.Email!, roles, token, expiresAt, refreshToken, refreshExpiresAt));
+        AddRefreshTokenToCookie(context, refreshToken);
+
+        var csrfTokens = antiforgery.GetAndStoreTokens(context);
+        return Results.Ok(new AuthResponse(token, expiresAt, csrfTokens.RequestToken));
     }
 
     private static async Task<IResult> RefreshAsync(
-        RefreshRequest request,
+        IAntiforgery antiforgery,
+        HttpContext context,
         AppDbContext db,
         UserManager<ApplicationUser> userManager,
         ITokenService tokenService,
         IOptions<JwtSettings> jwtSettings,
         CancellationToken cancellationToken)
     {
+        await antiforgery.ValidateRequestAsync(context);
+
+        string? refreshToken = null;
+        if (context.Request.Cookies.TryGetValue("refreshToken", out string? cookieValue))
+        {
+            refreshToken = cookieValue;
+        }
+
         var existing = await db.RefreshTokens
-            .FirstOrDefaultAsync(t => t.Token == request.RefreshToken, cancellationToken: cancellationToken);
+            .FirstOrDefaultAsync(t => t.Token == refreshToken, cancellationToken: cancellationToken);
 
         if (existing is null)
         {
@@ -185,16 +205,28 @@ public static class AuthEndpoints
             Expires = refreshExpiresAt
         });
         await db.SaveChangesAsync(cancellationToken);
+        AddRefreshTokenToCookie(context, newRefreshToken);
 
         var roles = await userManager.GetRolesAsync(user);
         var userClaims = await userManager.GetClaimsAsync(user);
         var (accessToken, accessExpiresAt) = await tokenService.CreateAccessToken(user, roles, userClaims);
 
+        var csrfTokens = antiforgery.GetAndStoreTokens(context);
         return Results.Ok(new AuthResponse(
-            user.Id, user.Email, roles, 
             accessToken, accessExpiresAt, 
-            newRefreshToken, refreshExpiresAt));
+            CsrfToken: csrfTokens.RequestToken));
+    }
 
+    private static void AddRefreshTokenToCookie(HttpContext context, string refreshToken)
+    {
+        context.Response.Cookies.Append("refreshToken", refreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Path = "/api/auth/refresh",
+            MaxAge = TimeSpan.FromDays(7)
+        });
     }
 
     private static async Task<IResult> RevokeAsync(RevokeRequest request, AppDbContext db)
